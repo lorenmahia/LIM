@@ -5,7 +5,7 @@ import datetime as dt
 from pylab import mpl, plt
 from polygon import RESTClient
 from itertools import product
-os.environ['apikey'] = 'vf1yK4D8c5Opbw3RKDwOqli0Rjmtzdx0'
+os.environ['apikey'] = ''
 client = RESTClient(api_key=os.environ['apikey'])
 ticker = 'MSFT'
 

@@ -7,7 +7,7 @@ from pylab import mpl, plt
 from polygon import RESTClient
 from itertools import product
 from sklearn.linear_model import LinearRegression
-os.environ['apikey'] = 'vf1yK4D8c5Opbw3RKDwOqli0Rjmtzdx0'
+os.environ['apikey'] = ''
 client = RESTClient(api_key=os.environ['apikey'])
 ticker = 'MSFT'
 
@@ -17,11 +17,11 @@ for a in client.list_aggs(ticker=ticker, multiplier=1, timespan="minute", from_=
 
 data = pd.DataFrame(stockData)
 lags = 5
-cols = list()
+lagsColums = list()
 for lag in range(1, lags + 1):
     col = "lag: {}".format(lag)
     data[col] = data[0].shift(lag)
-    cols.append(col)
+    lagsColums.append(col)
 
 data.dropna(inplace=True)
 data['returns'] = np.log(data[0] / data[0].shift(1))
@@ -31,14 +31,14 @@ data.dropna(inplace=True)
 
 #Linear OLS Regression 
 model = LinearRegression()
-data['pos_ols_1'] = model.fit(data[cols],data['returns']).predict(data[cols])
-data['pos_ols_2'] = model.fit(data[cols],data['direction']).predict(data[cols])
-data[['pos_ols_1', 'pos_ols_2']] = np.where(data[['pos_ols_1', 'pos_ols_2']] > 0, 1, -1)
+data['firstOLS'] = model.fit(data[lagsColums],data['returns']).predict(data[lagsColums])
+data['secondOLS'] = model.fit(data[lagsColums],data['direction']).predict(data[lagsColums])
+data[['firstOLS', 'secondOLS']] = np.where(data[['firstOLS', 'secondOLS']] > 0, 1, -1)
 
 #vectorized backtesting
-data['strat_ols_1'] = data['pos_ols_1'] * data['returns']
-data['strat_ols_2'] = data['pos_ols_2'] * data['returns']
-data[['returns', 'strat_ols_1', 'strat_ols_2']].sum().apply(np.exp)
-data[['returns', 'strat_ols_1', 'strat_ols_2']].cumsum().apply(np.exp).plot(figsize=(10, 6))
+data['predictionFirstOLS'] = data['firstOLS'] * data['returns']
+data['predictionSecondOLS'] = data['secondOLS'] * data['returns']
+data[['returns', 'predictionFirstOLS', 'predictionSecondOLS']].sum().apply(np.exp)
+data[['returns', 'predictionFirstOLS', 'predictionSecondOLS']].cumsum().apply(np.exp).plot(figsize=(10, 6))
 plt.show()
 
