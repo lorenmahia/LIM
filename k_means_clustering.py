@@ -35,9 +35,11 @@ data['positionCluster'] = model.predict(data[lagsColumns])
 data['positionCluster'] = np.where(data['positionCluster'] == 1, -1, 1)
 plt.figure(figsize=(10, 6))
 plt.scatter(data[lagsColumns].iloc[:, 0], data[lagsColumns].iloc[:, 1],c=data['positionCluster'], cmap='coolwarm')
+plt.show()
 
 #Vectorized Backtesting to observe reults 
 data['returns'] = np.log(data[0] / data[0].shift(1))
 data['predictionCluster'] = data['positionCluster'] * data['returns']
 data[['returns', 'predictionCluster']].sum().apply(np.exp)
 data[['returns', 'predictionCluster']].cumsum().apply(np.exp).plot(figsize=(10, 6))
+plt.show()
