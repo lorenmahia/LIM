@@ -13,7 +13,7 @@ from polygon import RESTClient
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 
-os.environ['apikey'] = 'vf1yK4D8c5Opbw3RKDwOqli0Rjmtzdx0'
+os.environ['apikey'] = ''
 client = RESTClient(api_key=os.environ['apikey'])
 ticker = 'SPY'
 
