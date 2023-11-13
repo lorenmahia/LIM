@@ -1,0 +1,130 @@
+''''
+This Code adds Machine Learning to the Kelly Fraction Strategy to maximize returns. 
+All data is binarized and a supervised training model is used. 
+'''
+import numpy as np
+import os
+import math
+import pickle
+import time
+import pandas as pd
+from pylab import mpl, plt
+from polygon import RESTClient
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+os.environ['apikey'] = 'vf1yK4D8c5Opbw3RKDwOqli0Rjmtzdx0'
+client = RESTClient(api_key=os.environ['apikey'])
+ticker = 'SPY'
+
+stockData = list()
+for a in client.list_aggs(ticker=ticker, multiplier=1, timespan="day", from_="2021-06-01", to="2023-06-13", limit=50000):
+    stockData.append(a.close)
+
+data = pd.DataFrame(stockData)
+data["returns"] = np.log(data[0] / data[0].shift(1))
+data.dropna(inplace=True)
+lags = 5
+lagsColumns = list()
+for lag in range(1, lags + 1):
+    col = "lag: {}".format(lag)
+    data[col] = data[0].shift(lag)
+    lagsColumns.append(col)
+
+#Binarizing data 
+data[lagsColumns] = np.where(data[lagsColumns] > 0 , 1, 0)
+data["direction"] = np.where(data["returns"] > 0, 1, -1)
+
+''''
+Using Machine learning based on the support vector machine(SVM) that had superior 
+performance in model development
+Since performing a trade generates tranasction costs, this model accounts for this, producing 
+better results than the random walk hypothesis
+'''
+model = SVC(C = 1, kernel="linear", gamma="auto")
+#Spliting the data for Train trainTest Modelling
+dataSplit = (int)(len(data) * 0.8)
+trainTest = data.iloc[:dataSplit].copy()
+model.fit(trainTest[lagsColumns],trainTest["direction"])
+#Accuracy score of the training data 
+trainingScore = accuracy_score(trainTest["direction"],model.predict(trainTest[lagsColumns]))
+#Accuracy score of the trainTest data
+trainTest["position"] = model.predict(trainTest[lagsColumns])
+testScore = accuracy_score(trainTest["direction"],trainTest["position"])
+
+#Derives log returns for this strategy
+trainTest["strategy"] = trainTest["position"] * trainTest["returns"]
+#Including transaction costs 
+tranasctionCost = 0.06 #TODO
+trainTest["strategywCosts"] = np.where(trainTest["position"].diff() != 0, trainTest["strategy"] - tranasctionCost, trainTest["strategy"])
+trainTest[['returns', 'strategy', 'strategywCosts']].cumsum(
+).apply(np.exp).plot(figsize=(10, 6))
+
+#Maximizing Profits by optimizing values 
+#Annualized Mean ,Variance and Volatility Returns
+testDataMean = trainTest[["returns", "strategywCosts"]].mean() * len(data) * 12
+testDataVariance = trainTest[["returns", "strategywCosts"]].var() * len(data) *12
+testDataVolatility = testDataVariance ** 0.5
+
+#Fully Kelly Criterion
+fullKelly = testDataMean / testDataVariance
+#Half Kelly Criterion 
+halfKelly = testDataMean / testDataVariance * 0.5
+
+#Scaling Leverages 
+#CAUTION: Scaling Leverages increases Risk and should be used wisely
+scaledLeverages = ['returns', 'strategywCosts']
+for testLeverage in [5, 10, 15]:
+    label = 'strategywCosts_%d' % testLeverage
+    trainTest[label] = trainTest['strategywCosts'] * testLeverage
+    scaledLeverages.append(label)
+trainTest[scaledLeverages].cumsum().apply(np.exp).plot(figsize=(10, 6))
+
+#Risk analysis to reduce leverage associated risks
+#TODO
+
+#Serializing the Model for Deployment 
+#pickle.dump(model,open('LIGMlModel,pk','wb'))
+
+''''
+Previously, our algorithm has been training based on historical data. 
+This section implements an online algorithm that makes trading decisions based on real-time market data.
+This allows LIG to implement high-frequency trading (HFT), which is a type of trading that involves executing
+a large number of orders in a very short period of time.
+Transforming an offline trading algorithm into an online trading algorithm involves adapting the code to handle real-time data processing,
+resampling, prediction, and order generation. Here's a breakdown of the key aspects:
+
+Tick Data Handling:
+
+Real-time data processing: Replace historical data loading with a real-time data stream to continuously receive and process market updates.
+Tick-based updates: Instead of handling data in bulk, process each tick (individual price update) as it arrives.
+Data buffering: Implement a buffer to store recent tick data for resampling and analysis.
+
+Resampling:
+
+Bar size selection: Determine the appropriate bar size (e.g., 1-minute, 5-minute bars) based on the trading algorithm's requirements.
+Resampling logic: Implement resampling logic to aggregate tick data into bars of the chosen size.
+Bar-based analysis: Shift the algorithm's analysis from tick-level to bar-level data for consistent decision-making.
+
+Prediction:
+
+Real-time prediction: Adapt the prediction model to accept real-time bar data as input.
+Prediction frequency: Determine the prediction frequency (e.g., every bar, every N bars) based on the algorithm's strategy.
+Prediction output: Generate a prediction for the market movement direction (e.g., up, down, neutral) over the relevant time interval.
+
+Orders:
+
+Signal integration: Incorporate the prediction ("signal") generated by the algorithm into the order generation process.
+Position management: Implement logic to determine whether to place an order (buy, sell) or maintain the current position based on the signal and current position.
+Order execution: Integrate with a trading platform or broker's API to execute orders when appropriate.
+'''
+#testModelAlgo = pickle.load(open("LIGMlModel.pk","rb"))
+#Defining the DataFrame Columns we need 
+dataColumns = ['tradeID', 'tradeAmount', 'currency', 'grossPL', 'toBuy', 'toSell', 'source', 'LIGIP']
+
+def open_positions(positions):
+    print("LIG: Printing Open Positions")
+    print("Going: {}.\n".format(positions))
+    time.sleep(2)
+    #TODO  Print all open positions using api TBD
+    
