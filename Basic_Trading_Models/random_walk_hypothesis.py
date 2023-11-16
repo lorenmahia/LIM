@@ -7,6 +7,7 @@ from pylab import mpl, plt
 from polygon import RESTClient
 from itertools import product
 from sklearn.linear_model import LinearRegression
+
 os.environ['apikey'] = ''
 client = RESTClient(api_key=os.environ['apikey'])
 ticker = 'MSFT'
